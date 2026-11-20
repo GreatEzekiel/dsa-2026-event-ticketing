@@ -1,0 +1,164 @@
+{
+  "info": {
+    "name": "EventPulse Capstone (React + Node + MySQL)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "eventId", "value": "" },
+    { "key": "tierId", "value": "" },
+    { "key": "bookingRef", "value": "" },
+    { "key": "qrToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "2. Organizer - Create Event",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('eventId', res.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-user-id", "value": "org-1" },
+          { "key": "x-user-role", "value": "organizer" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Lagos Dev & Cloud Summit\",\n  \"city\": \"Lagos\",\n  \"venue\": \"Landmark Centre\",\n  \"startsAt\": \"2026-12-15T10:00:00.000Z\"\n}"
+        },
+        "url": "{{baseUrl}}/api/events"
+      }
+    },
+    {
+      "name": "3. Organizer - Add Ticket Tier",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('tierId', res.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-user-id", "value": "org-1" },
+          { "key": "x-user-role", "value": "organizer" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Regular Pass\",\n  \"priceCents\": 1500000,\n  \"capacity\": 50\n}"
+        },
+        "url": "{{baseUrl}}/api/events/{{eventId}}/tiers"
+      }
+    },
+    {
+      "name": "4. Organizer - Publish Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "x-user-id", "value": "org-1" },
+          { "key": "x-user-role", "value": "organizer" }
+        ],
+        "url": "{{baseUrl}}/api/events/{{eventId}}/publish"
+      }
+    },
+    {
+      "name": "5. Attendee - Search & Filter Events",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/events?city=Lagos&sortBy=price"
+      }
+    },
+    {
+      "name": "6. Attendee - Book Tickets",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('bookingRef', res.reference);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-user-id", "value": "usr-101" },
+          { "key": "x-user-role", "value": "attendee" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"tierId\": \"{{tierId}}\",\n  \"quantity\": 2\n}"
+        },
+        "url": "{{baseUrl}}/api/bookings"
+      }
+    },
+    {
+      "name": "7. Attendee - Pay Booking",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('qrToken', res.qrToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-user-id", "value": "usr-101" },
+          { "key": "x-user-role", "value": "attendee" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"simulateDecline\": false }"
+        },
+        "url": "{{baseUrl}}/api/bookings/{{bookingRef}}/pay"
+      }
+    },
+    {
+      "name": "8. Staff - Check In Ticket QR",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-user-id", "value": "staff-1" },
+          { "key": "x-user-role", "value": "staff" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{qrToken}}\",\n  \"targetEventId\": \"{{eventId}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/checkin"
+      }
+    }
+  ]
+}

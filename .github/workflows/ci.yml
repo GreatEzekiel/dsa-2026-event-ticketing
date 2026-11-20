@@ -1,0 +1,61 @@
+name: Event Ticketing CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: event_ticketing
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Apply MySQL schema
+        env:
+          MYSQL_PWD: rootpassword
+        run: mysql -h 127.0.0.1 -P 3306 -u root event_ticketing < server/src/db/schema.sql
+
+      - name: Run server tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpassword
+          DB_NAME: event_ticketing
+          TICKET_SECRET: ci-test-ticket-secret
+        run: npm --prefix server test
+
+      - name: Install client dependencies and build
+        run: |
+          npm --prefix client ci
+          npm --prefix client run build
