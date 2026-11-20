@@ -93,7 +93,7 @@ export default function Navbar({ currentPage, setCurrentPage }) {
                 onClick={() => setCurrentPage("auth")}
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700"
               >
-                Switch Role
+                Account
               </button>
               <button
                 type="button"

@@ -12,7 +12,7 @@ EventPulse is a capstone event ticketing application for browsing events, reserv
 - Join an in-memory waitlist for sold-out tiers and accept offers surfaced by the client.
 - Check in a paid ticket once as staff using its QR token and event ID.
 
-This project is a demonstration, not a production payment or identity system. Sign-in creates or opens a demo profile using a selected role; it does not verify a password. API identity is supplied through request headers and payment is simulated. Booking records are stored in MySQL and loaded into **My Tickets** after sign-in. Waitlist state is held in browser memory.
+This project is a demonstration, not a production payment system. Each account has its own email, password hash, database user ID, and signed session. Attendees can see only bookings tied to their account. Payment is simulated, and waitlist state is held in browser memory.
 
 ## Requirements
 
@@ -120,32 +120,34 @@ mysql -h YOUR_PUBLIC_DB_HOST -P YOUR_PUBLIC_DB_PORT -u YOUR_DB_USER -p YOUR_DB_N
 npm --prefix server run seed # Insert sample events using the database settings in server/.env.
 ```
 
-Do not put database credentials or `TICKET_SECRET` in GitHub. The app uses demo-only identity headers and mock payments; use sample data only for a public demonstration.
+Do not put database credentials or `TICKET_SECRET` in GitHub. The app uses demo role selection and mock payments; use sample data only for a public demonstration.
 
 ## Using the application
 
-The welcome page leads to the sign-in/sign-up screen. Enter an email and select a demo role: `attendee`, `organizer`, or `staff`. The app then opens event browsing for attendees, the organizer tools for organizers, or staff check-in for staff. The demo API identifies the active profile using `x-user-id`, `x-user-role`, and `x-user-email` request headers.
+The welcome page leads to sign-in or account creation. Create an account with an email and a password of at least eight characters. New accounts choose one of the capstone roles: `attendee`, `organizer`, or `staff`. After signing in, the app opens event browsing for attendees, organizer tools for organizers, or staff check-in for staff. A successful sign-in is saved on the device, and booking history is loaded for that account.
 
 To create an event, use the organizer view to create it, add one or more tiers, and publish it. As an attendee, select a published event and tier to reserve tickets. You can simulate payment immediately, or choose **Pay Later** and return to **My Registered Events** to pay any time before the event starts. The booking reserves the seats until the event starts. Paid tickets contain a signed token intended for check-in. The staff screen can validate that token against an event. Booking history is stored in MySQL and loaded when the profile signs in. Waitlist entries are temporary browser state and are cleared when the page is reloaded.
 
 ## API overview
 
-All routes below are served by the Express API. `/api` routes attach a demo user from headers; omitted identity headers default to `usr-101`, `attendee`, and `usr-101@example.com`. These headers are for local demonstration only and do not authenticate a real user.
+All routes below are served by the Express API. Event browsing is public. Sign-up and sign-in return a signed bearer token; send it as `Authorization: Bearer <token>` to access bookings and other protected routes. Sessions expire after seven days.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | API health check |
+| `POST` | `/api/auth/signup` | Create a separate account; body includes `email`, `password`, and optional demo `role` |
+| `POST` | `/api/auth/login` | Sign in with `email` and `password` to receive a session token |
 | `GET` | `/api/events` | List published events; optional `q`, `city`, `maxPriceCents`, and `sortBy` query parameters |
 | `POST` | `/api/events` | Create an unpublished event (organizer) |
 | `POST` | `/api/events/:id/tiers` | Add a ticket tier (event owner/organizer) |
 | `POST` | `/api/events/:id/publish` | Publish an event (event owner/organizer) |
-| `GET` | `/api/bookings` | List booking history for the current demo user |
+| `GET` | `/api/bookings` | List booking history for the signed-in account |
 | `POST` | `/api/bookings` | Reserve ticket inventory |
 | `POST` | `/api/bookings/:reference/pay` | Simulate payment and obtain a ticket token |
 | `POST` | `/api/bookings/:reference/cancel` | Cancel a pending booking or cancel/refund a paid booking |
 | `POST` | `/api/checkin` | Validate and redeem a ticket token (staff) |
 
-Send JSON request bodies for write operations. Errors use an envelope of the form `{ "error": { "code": "...", "message": "..." } }`. The complete request examples are in [`postman/event-ticketing.postman_collection.json`](postman/event-ticketing.postman_collection.json).
+Send JSON request bodies for write operations. Errors use an envelope of the form `{ "error": { "code": "...", "message": "..." } }`. The Postman collection includes sign-up requests that save separate attendee, organizer, and staff tokens before calling protected routes; set its `baseUrl` to the API host when testing a deployment.
 
 ## Scripts
 
@@ -175,8 +177,8 @@ npm run dev                  # Start the frontend in another terminal.
 - **The browser reports a network error:** verify the API is listening on the URL in the project-root `.env` (or the default port 5000), then restart Vite after configuration changes.
 - **The API cannot connect to MySQL:** check `server/.env`, database permissions, and that `DB_NAME` matches the loaded schema.
 - **`EADDRINUSE` appears when starting the API:** another program is already using the configured port. Stop the old API process, or choose an unused `PORT` in `server/.env` and set the same API address in the project-root `.env` as `VITE_API_URL`.
-- **Organizer/staff actions are forbidden:** select the corresponding demo role in the app. The selected role is passed as a request header; this is not production authentication.
+- **Organizer/staff actions are forbidden:** use an account that was created with the corresponding demo role. The role is saved on that account and the API checks its signed session.
 
 ## Security and production notes
 
-This application is intentionally a capstone prototype. Before public deployment, replace header-based demo identity with verified authentication and authorization, integrate a payment provider, persist and manage waitlists, add rate limiting and operational logging, review CORS and CSP policies for the deployed frontend, and manage signing/database secrets outside source control. Do not use the included mock login or payment flow to process real users or money.
+This application is intentionally a capstone prototype. Passwords are scrypt-hashed and API requests use signed bearer sessions, but there is no email verification, password reset, or rate limiting, and new users can select demo organizer/staff roles. Payment is still mocked and waitlists are not persisted. Do not use it for real ticket sales or sensitive personal data; production use requires hardened identity and role provisioning, a payment provider, persisted waitlists, and operational security controls.

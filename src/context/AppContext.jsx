@@ -4,7 +4,15 @@ import { api } from '../services/api';
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const saved = JSON.parse(window.localStorage.getItem('eventpulse.session') || 'null');
+      return saved?.token ? saved : null;
+    } catch {
+      return null;
+    }
+  });
 
   const [events, setEvents] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -27,29 +35,52 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => {
-    refreshEvents();
-  }, [refreshEvents]);
-
-  const login = async (email, role) => {
-    const nextUser = {
-      id: role === 'organizer' ? 'org-1' : role === 'staff' ? 'staff-1' : 'usr-101',
-      name: email.split('@')[0],
-      email,
-      role,
-    };
-    setUser(nextUser);
+  const refreshBookings = useCallback(async (currentUser) => {
+    if (!currentUser) {
+      setBookings([]);
+      setBookingLoadError(null);
+      return;
+    }
     setBookingLoadError(null);
     try {
-      const data = await api.listBookings(nextUser);
+      const data = await api.listBookings(currentUser);
       setBookings(Array.isArray(data.bookings) ? data.bookings : []);
     } catch (err) {
       setBookings([]);
       setBookingLoadError(err.message);
     }
+  }, []);
+
+  useEffect(() => {
+    refreshEvents();
+  }, [refreshEvents]);
+
+  useEffect(() => {
+    if (user) refreshBookings(user);
+  }, [user, refreshBookings]);
+
+  const saveSession = async (authRequest) => {
+    const response = await authRequest;
+    const nextUser = response.user;
+    nextUser.name = nextUser.email.split('@')[0];
+    window.localStorage.setItem('eventpulse.session', JSON.stringify(nextUser));
+    setUser(nextUser);
+    await refreshBookings(nextUser);
+    await refreshEvents();
+    return nextUser;
   };
 
-  const logout = () => setUser(null);
+  const login = (email, password) => saveSession(api.login({ email, password }));
+  const signup = (email, password, role) =>
+    saveSession(api.signup({ email, password, role }));
+
+  const logout = () => {
+    window.localStorage.removeItem('eventpulse.session');
+    setUser(null);
+    setBookings([]);
+    setActiveCheckoutId(null);
+    setWaitlist([]);
+  };
 
   // Organizer Actions -> MySQL via Express API
   const createEvent = async ({ title, city, venue, startsAt }) => {
@@ -181,6 +212,7 @@ export function AppProvider({ children }) {
       value={{
         user,
         login,
+        signup,
         logout,
         events,
         loadingEvents,

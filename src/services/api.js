@@ -2,11 +2,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 async function request(path, { method = 'GET', body, user } = {}) {
   const headers = { 'Content-Type': 'application/json' };
-  if (user) {
-    headers['x-user-id'] = user.id;
-    headers['x-user-role'] = user.role;
-    headers['x-user-email'] = user.email;
-  }
+  if (user?.token) headers.Authorization = `Bearer ${user.token}`;
 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
@@ -23,6 +19,8 @@ async function request(path, { method = 'GET', body, user } = {}) {
 
 export const api = {
   health: () => request('/health'),
+  signup: (payload) => request('/api/auth/signup', { method: 'POST', body: payload }),
+  login: (payload) => request('/api/auth/login', { method: 'POST', body: payload }),
   listEvents: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/events${qs ? `?${qs}` : ''}`);

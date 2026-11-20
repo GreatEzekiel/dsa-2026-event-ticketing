@@ -78,6 +78,51 @@ function verifyTicketToken(token) {
   }
 }
 
+function hashPassword(password, salt = crypto.randomBytes(16).toString('base64url')) {
+  const hash = crypto.scryptSync(password, salt, 64).toString('base64url');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyPassword(password, storedHash) {
+  const [algorithm, salt, savedHash] = String(storedHash || '').split('$');
+  if (algorithm !== 'scrypt' || !salt || !savedHash) return false;
+  const actual = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(savedHash, 'base64url');
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
+function createSessionToken(user) {
+  const payload = Buffer.from(JSON.stringify({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', TICKET_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function readSessionToken(token) {
+  const [payload, signature, ...extra] = String(token || '').split('.');
+  if (!payload || !signature || extra.length) return null;
+  const expected = crypto.createHmac('sha256', TICKET_SECRET).update(payload).digest('base64url');
+  const actualBytes = Buffer.from(signature);
+  const expectedBytes = Buffer.from(expected);
+  if (actualBytes.length !== expectedBytes.length || !crypto.timingSafeEqual(actualBytes, expectedBytes)) {
+    return null;
+  }
+  try {
+    const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return session.exp > Date.now() ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+function publicUser(user) {
+  return { id: user.id, email: user.email, role: user.role };
+}
+
 function calculateRefund({ amountCents, startsAt, now = Date.now() }) {
   const diffMs = new Date(startsAt).getTime() - now;
   if (diffMs <= 0) {
@@ -89,20 +134,104 @@ function calculateRefund({ amountCents, startsAt, now = Date.now() }) {
   return { refundCents: 0, percentage: 0 };
 }
 
-// Lightweight auth/role middleware (supports Bearer token or x-user-id / x-user-role headers)
+// Public event browsing does not require an account; booking and management routes do.
 async function attachUser(req, res, next) {
-  const userId = req.header('x-user-id') || 'usr-101';
-  const role = req.header('x-user-role') || 'attendee';
-  const email = req.header('x-user-email') || `${userId}@example.com`;
+  if (req.method === 'GET' && req.path === '/events') return next();
 
-  await pool.execute(
-    'INSERT IGNORE INTO users (id, email, password_hash, role) VALUES (?, ?, ?, ?)',
-    [userId, email, 'scrypt-managed', role]
-  );
-  await pool.execute('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
-  req.user = { id: userId, email, role };
-  next();
+  try {
+    const authorization = req.header('authorization') || '';
+    const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const session = readSessionToken(token);
+    if (!session) throw new ApiError('UNAUTHORIZED', 'Sign in to continue.', 401);
+
+    const [users] = await pool.execute(
+      'SELECT id, email, role FROM users WHERE id = ? AND email = ?',
+      [session.sub, session.email]
+    );
+    if (users.length === 0 || users[0].role !== session.role) {
+      throw new ApiError('UNAUTHORIZED', 'This account session is no longer valid. Sign in again.', 401);
+    }
+    req.user = users[0];
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
+
+app.post('/api/auth/signup', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    const role = req.body?.role || 'attendee';
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      throw new ApiError('VALIDATION', 'Enter a valid email address.', 400);
+    }
+    if (email.length > 255) {
+      throw new ApiError('VALIDATION', 'Email address must be 255 characters or fewer.', 400);
+    }
+    if (password.length < 8) {
+      throw new ApiError('VALIDATION', 'Password must be at least 8 characters.', 400);
+    }
+    if (password.length > 128) {
+      throw new ApiError('VALIDATION', 'Password must be 128 characters or fewer.', 400);
+    }
+    if (!['attendee', 'organizer', 'staff'].includes(role)) {
+      throw new ApiError('VALIDATION', 'Choose a valid account role.', 400);
+    }
+
+    const [existing] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+    let user;
+    if (existing.length > 0) {
+      if (existing[0].password_hash !== 'scrypt-managed') {
+        throw new ApiError('EMAIL_EXISTS', 'An account with this email already exists. Sign in instead.', 409);
+      }
+      // Keep old shared demo data detached; it cannot safely be assigned to a new person.
+      await pool.execute(
+        'UPDATE users SET email = ? WHERE id = ?',
+        [`legacy-${crypto.randomUUID()}@invalid.local`, existing[0].id]
+      );
+    }
+
+    user = {
+      id: `usr-${crypto.randomUUID()}`,
+      email,
+      role,
+    };
+    try {
+      await pool.execute(
+        'INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, ?)',
+        [user.id, email, hashPassword(password), role]
+      );
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        throw new ApiError('EMAIL_EXISTS', 'An account with this email already exists. Sign in instead.', 409);
+      }
+      throw err;
+    }
+
+    res.status(201).json({ user: { ...publicUser(user), token: createSessionToken(user) } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/auth/login', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    if (email.length > 255 || password.length > 128) {
+      throw new ApiError('VALIDATION', 'Email or password is too long.', 400);
+    }
+    const [users] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+    const user = users[0];
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      throw new ApiError('INVALID_CREDENTIALS', 'Email or password is incorrect.', 401);
+    }
+    res.json({ user: { ...publicUser(user), token: createSessionToken(user) } });
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.use('/api', attachUser);
 
