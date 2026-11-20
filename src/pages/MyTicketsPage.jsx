@@ -5,10 +5,11 @@ import RefundModal from '../components/RefundModal';
 import QrCodeCanvas from '../components/QrCodeCanvas';
 import WaitlistOfferCard from '../components/WaitlistOfferCard';
 
-export default function MyTicketsPage({ onOpenCheckout }) {
+export default function MyTicketsPage({ onOpenCheckout, onBrowseEvents }) {
   const {
     user,
     bookings,
+    bookingLoadError,
     waitlist,
     cancelBooking,
     acceptWaitlistOffer,
@@ -23,10 +24,10 @@ export default function MyTicketsPage({ onOpenCheckout }) {
     (w) => w.userId === user?.id && ['waiting', 'offered'].includes(w.status)
   );
 
-  const handleConfirmCancel = (bookingId) => {
+  const handleConfirmCancel = async (bookingId) => {
     setMessage(null);
     try {
-      cancelBooking(bookingId);
+      await cancelBooking(bookingId);
       setCancelTarget(null);
       setMessage({ type: 'success', text: 'Booking cancelled and seats released.' });
     } catch (err) {
@@ -34,10 +35,10 @@ export default function MyTicketsPage({ onOpenCheckout }) {
     }
   };
 
-  const handleAcceptOffer = (waitlistId) => {
+  const handleAcceptOffer = async (waitlistId) => {
     setMessage(null);
     try {
-      acceptWaitlistOffer(waitlistId);
+      await acceptWaitlistOffer(waitlistId);
       onOpenCheckout();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -46,7 +47,16 @@ export default function MyTicketsPage({ onOpenCheckout }) {
 
   return (
     <section className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">My Tickets & Waitlist</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">My Registered Events</h1>
+        <p className="mt-1 text-sm text-slate-600">Your reservations, paid tickets, and waitlist offers appear here.</p>
+      </div>
+
+      {bookingLoadError && (
+        <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          Could not load your saved bookings: {bookingLoadError}
+        </div>
+      )}
 
       {message && (
         <div
@@ -70,11 +80,22 @@ export default function MyTicketsPage({ onOpenCheckout }) {
         </div>
       )}
 
-      {myBookings.length === 0 ? (
+      {!bookingLoadError && myBookings.length === 0 ? (
         <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-500">
-          You have not booked any tickets yet.
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-2xl text-emerald-700">♫</div>
+          <h2 className="mt-4 text-lg font-semibold text-slate-900">No past registrations yet</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+            Once you reserve or buy a ticket, the event will show up here. Find something you love and register for your first event.
+          </p>
+          <button
+            type="button"
+            onClick={onBrowseEvents}
+            className="mt-5 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+          >
+            Browse events
+          </button>
         </div>
-      ) : (
+      ) : myBookings.length > 0 ? (
         <div className="space-y-4">
           {myBookings.map((b) => (
             <div
@@ -154,7 +175,7 @@ export default function MyTicketsPage({ onOpenCheckout }) {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       <RefundModal
         booking={cancelTarget}

@@ -8,9 +8,10 @@ import MyTicketsPage from './pages/MyTicketsPage';
 import OrganizerDashboardPage from './pages/OrganizerDashboardPage';
 import StaffCheckinPage from './pages/StaffCheckinPage';
 import AuthPage from './pages/AuthPage';
+import WelcomePage from './pages/WelcomePage';
 
 function MainRouter() {
-  const [currentPage, setCurrentPage] = useState('home');
+  const [currentPage, setCurrentPage] = useState('welcome');
   const [selectedEventId, setSelectedEventId] = useState(null);
 
   const handleSelectEvent = (eventId) => {
@@ -22,7 +23,14 @@ function MainRouter() {
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col">
       <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8">
+      <main className={currentPage === 'welcome' ? 'flex-1 w-full' : 'flex-1 max-w-6xl w-full mx-auto px-4 py-8'}>
+        {currentPage === 'welcome' && (
+          <WelcomePage
+            onGetStarted={() => setCurrentPage('auth')}
+            onSignIn={() => setCurrentPage('auth')}
+          />
+        )}
+
         {currentPage === 'home' && <HomePage onSelectEvent={handleSelectEvent} />}
 
         {currentPage === 'event-detail' && (
@@ -41,7 +49,10 @@ function MainRouter() {
         )}
 
         {currentPage === 'tickets' && (
-          <MyTicketsPage onOpenCheckout={() => setCurrentPage('checkout')} />
+          <MyTicketsPage
+            onOpenCheckout={() => setCurrentPage('checkout')}
+            onBrowseEvents={() => setCurrentPage('home')}
+          />
         )}
 
         {currentPage === 'organizer' && <OrganizerDashboardPage />}
@@ -52,7 +63,7 @@ function MainRouter() {
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        EventPulse Capstone • React.js + Tailwind CSS + Node.js + MySQL
+        EventPulse
       </footer>
     </div>
   );

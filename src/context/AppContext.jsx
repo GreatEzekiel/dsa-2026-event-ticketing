@@ -4,15 +4,11 @@ import { api } from '../services/api';
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [user, setUser] = useState({
-    id: 'usr-101',
-    name: 'Adejare Ezekiel',
-    email: 'adejare@example.com',
-    role: 'attendee', // 'attendee' | 'organizer' | 'staff'
-  });
+  const [user, setUser] = useState(null);
 
   const [events, setEvents] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [bookingLoadError, setBookingLoadError] = useState(null);
   const [waitlist, setWaitlist] = useState([]);
   const [activeCheckoutId, setActiveCheckoutId] = useState(null);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -35,26 +31,22 @@ export function AppProvider({ children }) {
     refreshEvents();
   }, [refreshEvents]);
 
-  // Periodically expire local pending holds if countdown runs out
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.status === 'pending' && now > b.expiresAt ? { ...b, status: 'cancelled' } : b
-        )
-      );
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const login = (email, role) => {
-    setUser({
+  const login = async (email, role) => {
+    const nextUser = {
       id: role === 'organizer' ? 'org-1' : role === 'staff' ? 'staff-1' : 'usr-101',
       name: email.split('@')[0],
       email,
       role,
-    });
+    };
+    setUser(nextUser);
+    setBookingLoadError(null);
+    try {
+      const data = await api.listBookings(nextUser);
+      setBookings(Array.isArray(data.bookings) ? data.bookings : []);
+    } catch (err) {
+      setBookings([]);
+      setBookingLoadError(err.message);
+    }
   };
 
   const logout = () => setUser(null);
@@ -195,6 +187,7 @@ export function AppProvider({ children }) {
         apiError,
         refreshEvents,
         bookings,
+        bookingLoadError,
         waitlist,
         activeCheckoutId,
         setActiveCheckoutId,

@@ -27,6 +27,7 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/events${qs ? `?${qs}` : ''}`);
   },
+  listBookings: (user) => request('/api/bookings', { user }),
   createEvent: (payload, user) =>
     request('/api/events', { method: 'POST', body: payload, user }),
   addTier: (eventId, payload, user) =>

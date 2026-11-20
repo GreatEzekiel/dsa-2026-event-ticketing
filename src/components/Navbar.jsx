@@ -12,14 +12,14 @@ export default function Navbar({ currentPage, setCurrentPage }) {
       <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
         <button
           type="button"
-          onClick={() => setCurrentPage("home")}
+          onClick={() => setCurrentPage(user ? "home" : "welcome")}
           className="text-xl font-bold tracking-tight text-emerald-400 hover:text-emerald-300"
         >
           EventPulse<span className="text-white font-normal">.ng</span>
         </button>
 
         <nav className="flex items-center gap-2 sm:gap-5 text-sm font-medium">
-          <button
+          {user && <button
             type="button"
             onClick={() => setCurrentPage("home")}
             className={`px-3 py-1.5 rounded-md transition ${
@@ -29,7 +29,7 @@ export default function Navbar({ currentPage, setCurrentPage }) {
             }`}
           >
             Browse Events
-          </button>
+          </button>}
 
           {user && (
             <button
@@ -41,7 +41,7 @@ export default function Navbar({ currentPage, setCurrentPage }) {
                   : "hover:text-emerald-300"
               }`}
             >
-              My Tickets
+              My Registered Events
               {activeOffers > 0 && (
                 <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-amber-500 text-slate-950 font-bold rounded-full">
                   {activeOffers} Offer
@@ -97,7 +97,10 @@ export default function Navbar({ currentPage, setCurrentPage }) {
               </button>
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => {
+                  logout();
+                  setCurrentPage("welcome");
+                }}
                 className="px-3 py-1.5 text-rose-400 hover:text-rose-300"
               >
                 Logout
@@ -109,7 +112,7 @@ export default function Navbar({ currentPage, setCurrentPage }) {
               onClick={() => setCurrentPage("auth")}
               className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-md"
             >
-              Log In / Sign Up
+              Join EventPulse
             </button>
           )}
         </div>

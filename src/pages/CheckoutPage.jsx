@@ -36,11 +36,11 @@ export default function CheckoutPage({ onSuccess, onCancel }) {
   const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const secs = String(secondsLeft % 60).padStart(2, '0');
 
-  const handlePay = (e) => {
+  const handlePay = async (e) => {
     e.preventDefault();
     setError(null);
     try {
-      payBooking(booking.id, { simulateDecline });
+      await payBooking(booking.id, { simulateDecline });
       onSuccess();
     } catch (err) {
       setError(err.message);
@@ -58,6 +58,12 @@ export default function CheckoutPage({ onSuccess, onCancel }) {
           Hold: {mins}:{secs}
         </div>
       </div>
+
+      {secondsLeft === 0 && (
+        <p role="alert" className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm">
+          This ticket hold has expired. Release it to return the seats, then reserve tickets again.
+        </p>
+      )}
 
       <div className="bg-slate-50 p-4 rounded-lg text-sm space-y-1">
         <p className="font-bold text-slate-900">{booking.eventTitle}</p>
@@ -92,9 +98,14 @@ export default function CheckoutPage({ onSuccess, onCancel }) {
         <div className="flex gap-3 pt-2">
           <button
             type="button"
-            onClick={() => {
-              cancelBooking(booking.id);
-              onCancel();
+            onClick={async () => {
+              setError(null);
+              try {
+                await cancelBooking(booking.id);
+                onCancel();
+              } catch (err) {
+                setError(err.message);
+              }
             }}
             className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg"
           >

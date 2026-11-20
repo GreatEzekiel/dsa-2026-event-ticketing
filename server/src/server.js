@@ -256,6 +256,42 @@ app.post('/api/events/:id/publish', async (req, res, next) => {
   }
 });
 
+// GET /api/bookings (signed-in user's booking history)
+app.get('/api/bookings', async (req, res, next) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT b.*, e.title AS event_title, e.starts_at, t.name AS tier_name
+       FROM bookings b
+       JOIN events e ON e.id = b.event_id
+       JOIN ticket_tiers t ON t.id = b.tier_id
+       WHERE b.user_id = ?
+       ORDER BY b.created_at DESC`,
+      [req.user.id]
+    );
+    res.json({
+      bookings: rows.map((booking) => ({
+        id: booking.id,
+        reference: booking.reference_code,
+        userId: booking.user_id,
+        eventId: booking.event_id,
+        eventTitle: booking.event_title,
+        startsAt: new Date(booking.starts_at).toISOString(),
+        tierId: booking.tier_id,
+        tierName: booking.tier_name,
+        quantity: Number(booking.quantity),
+        totalCents: Number(booking.total_cents),
+        refundedCents: Number(booking.refunded_cents),
+        status: booking.status,
+        expiresAt: Number(booking.expires_at),
+        qrToken: booking.qr_token,
+        checkedInAt: booking.checked_in_at,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/bookings (Atomic MySQL seat reservation)
 app.post('/api/bookings', async (req, res, next) => {
   const conn = await pool.getConnection();

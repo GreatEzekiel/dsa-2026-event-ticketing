@@ -26,11 +26,11 @@ export default function EventDetailPage({ eventId, onBack, onProceedCheckout }) 
     setQuantities((prev) => ({ ...prev, [tierId]: clamped }));
   };
 
-  const handleBook = (tierId) => {
+  const handleBook = async (tierId) => {
     setFeedback(null);
     try {
       const qty = quantities[tierId] || 1;
-      createBooking({ eventId: event.id, tierId, quantity: qty });
+      await createBooking({ eventId: event.id, tierId, quantity: qty });
       onProceedCheckout();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message });
