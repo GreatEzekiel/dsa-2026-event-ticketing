@@ -2,19 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/helpers';
 
-export default function CheckoutPage({ onSuccess, onCancel }) {
+export default function CheckoutPage({ onSuccess, onCancel, onLater }) {
   const { bookings, activeCheckoutId, payBooking, cancelBooking } = useApp();
   const booking = bookings.find((b) => b.id === activeCheckoutId);
 
-  const [secondsLeft, setSecondsLeft] = useState(300);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const [simulateDecline, setSimulateDecline] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!booking) return;
-    const timer = setInterval(() => {
+    const updateCountdown = () => {
       const remaining = Math.max(0, Math.floor((booking.expiresAt - Date.now()) / 1000));
       setSecondsLeft(remaining);
+    };
+    updateCountdown();
+    const timer = setInterval(() => {
+      updateCountdown();
     }, 1000);
     return () => clearInterval(timer);
   }, [booking]);
@@ -33,7 +37,9 @@ export default function CheckoutPage({ onSuccess, onCancel }) {
     );
   }
 
-  const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+  const days = Math.floor(secondsLeft / 86400);
+  const hours = String(Math.floor((secondsLeft % 86400) / 3600)).padStart(2, '0');
+  const mins = String(Math.floor((secondsLeft % 3600) / 60)).padStart(2, '0');
   const secs = String(secondsLeft % 60).padStart(2, '0');
 
   const handlePay = async (e) => {
@@ -55,13 +61,17 @@ export default function CheckoutPage({ onSuccess, onCancel }) {
           <p className="text-xs text-slate-500">Ref: {booking.reference}</p>
         </div>
         <div className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm font-mono font-bold">
-          Hold: {mins}:{secs}
+          Due: {days > 0 ? `${days}d ` : ''}{hours}:{mins}:{secs}
         </div>
       </div>
 
+      <p className="text-sm leading-6 text-slate-600">
+        Your seats are reserved. You can pay now or return to <strong>My Registered Events</strong> and pay any time before the event starts.
+      </p>
+
       {secondsLeft === 0 && (
         <p role="alert" className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm">
-          This ticket hold has expired. Release it to return the seats, then reserve tickets again.
+          The event has started, so this reservation can no longer be paid. Release it to return the seats.
         </p>
       )}
 
@@ -95,7 +105,7 @@ export default function CheckoutPage({ onSuccess, onCancel }) {
           </label>
         </div>
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-wrap gap-3 pt-2">
           <button
             type="button"
             onClick={async () => {
@@ -107,14 +117,21 @@ export default function CheckoutPage({ onSuccess, onCancel }) {
                 setError(err.message);
               }
             }}
-            className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg"
+            className="flex-1 basis-1/4 rounded-lg bg-slate-100 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200"
           >
             Release Hold
           </button>
           <button
+            type="button"
+            onClick={onLater}
+            className="flex-1 basis-1/4 rounded-lg border border-emerald-200 bg-emerald-50 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+          >
+            Pay Later
+          </button>
+          <button
             type="submit"
             disabled={secondsLeft === 0}
-            className="w-2/3 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-sm font-bold rounded-lg transition"
+            className="flex-1 basis-1/3 rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:bg-slate-300"
           >
             Pay {formatCurrency(booking.totalCents)}
           </button>

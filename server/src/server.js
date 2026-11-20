@@ -313,6 +313,10 @@ app.post('/api/bookings', async (req, res, next) => {
     if (tiers.length === 0) {
       throw new ApiError('NOT_FOUND', 'Ticket tier or event not found.', 404);
     }
+    const startsAt = new Date(tiers[0].starts_at);
+    if (startsAt.getTime() <= Date.now()) {
+      throw new ApiError('EVENT_STARTED', 'Tickets cannot be reserved after an event has started.', 409);
+    }
 
     const [upd] = await conn.execute(
       'UPDATE ticket_tiers SET sold = sold + ? WHERE id = ? AND sold + ? <= capacity',
@@ -325,7 +329,8 @@ app.post('/api/bookings', async (req, res, next) => {
     const id = `bk-${crypto.randomUUID().slice(0, 8)}`;
     const reference = newReference();
     const totalCents = Number(tiers[0].price_cents) * quantity;
-    const expiresAt = Date.now() + 5 * 60 * 1000;
+    // Keep the seat reserved until the event starts so attendees can return and pay later.
+    const expiresAt = startsAt.getTime();
 
     await conn.execute(
       `INSERT INTO bookings
@@ -342,7 +347,7 @@ app.post('/api/bookings', async (req, res, next) => {
       userId: req.user.id,
       eventId,
       eventTitle: tiers[0].event_title,
-      startsAt: new Date(tiers[0].starts_at).toISOString(),
+      startsAt: startsAt.toISOString(),
       tierId,
       tierName: tiers[0].name,
       quantity,

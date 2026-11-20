@@ -152,15 +152,18 @@ export default function MyTicketsPage({ onOpenCheckout, onBrowseEvents }) {
                 )}
 
                 {b.status === 'pending' && (
-                  <button
-                    onClick={() => {
-                      setActiveCheckoutId(b.id);
-                      onOpenCheckout();
-                    }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg"
-                  >
-                    Pay Now
-                  </button>
+                  <div className="flex flex-col items-start gap-1">
+                    <button
+                      onClick={() => {
+                        setActiveCheckoutId(b.id);
+                        onOpenCheckout();
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg"
+                    >
+                      Pay Now
+                    </button>
+                    <span className="text-xs text-slate-500">Reserved until the event starts</span>
+                  </div>
                 )}
 
                 {(b.status === 'pending' || b.status === 'paid') && (

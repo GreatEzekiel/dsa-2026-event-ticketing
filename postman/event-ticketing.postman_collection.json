@@ -91,6 +91,18 @@
       }
     },
     {
+      "name": "5a. Attendee - View My Bookings",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "x-user-id", "value": "usr-101" },
+          { "key": "x-user-role", "value": "attendee" },
+          { "key": "x-user-email", "value": "attendee@example.com" }
+        ],
+        "url": "{{baseUrl}}/api/bookings"
+      }
+    },
+    {
       "name": "6. Attendee - Book Tickets",
       "event": [
         {

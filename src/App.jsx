@@ -45,6 +45,7 @@ function MainRouter() {
           <CheckoutPage
             onSuccess={() => setCurrentPage('tickets')}
             onCancel={() => setCurrentPage('home')}
+            onLater={() => setCurrentPage('tickets')}
           />
         )}
 

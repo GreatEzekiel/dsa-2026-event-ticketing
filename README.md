@@ -6,7 +6,7 @@ EventPulse is a capstone event ticketing application for browsing events, reserv
 
 - Browse published events; search by title or venue; filter by city and maximum ticket price; sort by date, price, or remaining capacity.
 - Create events, add ticket tiers, and publish events as an organizer.
-- Reserve one to ten tickets per booking. The API holds inventory and returns a pending booking with an expiry time.
+- Reserve one to ten tickets per booking. Seats stay reserved until the event starts, so attendees can pay at checkout or return later from **My Registered Events**.
 - Simulate payment (including a decline path), issue signed QR tokens for paid bookings, and cancel bookings.
 - Apply the cancellation refund policy: full refund at least seven days before the event, 50% from two to under seven days, and no refund inside two days.
 - Join an in-memory waitlist for sold-out tiers and accept offers surfaced by the client.
@@ -109,7 +109,7 @@ npm --prefix server run seed # Ask the API project's seed script to add sample e
 
 The welcome page leads to the sign-in/sign-up screen. Enter an email and select a demo role: `attendee`, `organizer`, or `staff`. The app then opens event browsing for attendees, the organizer tools for organizers, or staff check-in for staff. The demo API identifies the active profile using `x-user-id`, `x-user-role`, and `x-user-email` request headers.
 
-To create an event, use the organizer view to create it, add one or more tiers, and publish it. As an attendee, select a published event and tier, reserve tickets, then use checkout to simulate payment. Paid tickets contain a signed token intended for check-in. The staff screen can validate that token against an event. Booking history is stored in MySQL and loaded when the profile signs in; open **My Tickets** to see earlier reservations and paid tickets. Waitlist entries are temporary browser state and are cleared when the page is reloaded.
+To create an event, use the organizer view to create it, add one or more tiers, and publish it. As an attendee, select a published event and tier to reserve tickets. You can simulate payment immediately, or choose **Pay Later** and return to **My Registered Events** to pay any time before the event starts. The booking reserves the seats until the event starts. Paid tickets contain a signed token intended for check-in. The staff screen can validate that token against an event. Booking history is stored in MySQL and loaded when the profile signs in. Waitlist entries are temporary browser state and are cleared when the page is reloaded.
 
 ## API overview
 
