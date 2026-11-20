@@ -88,9 +88,9 @@ async function main() {
       const startDate = new Date(startsAt);
       await pool.execute(
         `INSERT INTO events
-         (id, organizer_id, title, city, venue, starts_at, published, start_date, status)
-         VALUES (?, ?, ?, ?, ?, ?, TRUE, ?, 'published')`,
-        [id, organizerId, title, city, venue, startDate, startDate]
+         (id, organizer_id, title, city, venue, starts_at, published)
+         VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
+        [id, organizerId, title, city, venue, startDate]
       );
       eventCount++;
     }

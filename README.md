@@ -103,7 +103,24 @@ The API starts with an empty event list unless you add events or seed sample dat
 npm --prefix server run seed # Ask the API project's seed script to add sample events to MySQL.
 ```
 
-**Current seed/schema mismatch:** `server/src/db/seed.js` writes `start_date` and `status` columns, but `server/src/db/schema.sql` does not define those columns. Consequently, with only the checked-in schema loaded, seeding fails. The script also inserts events using the `usr-org-1` organizer account by default; set `SEED_ORGANIZER_ID` if you change that ID. Align the seed script and schema before relying on the seed command.
+The seed script inserts sample events using the `usr-org-1` organizer account by default. Set `SEED_ORGANIZER_ID` if you use another organizer ID.
+
+## Deploy a live demo
+
+The repository includes [`render.yaml`](render.yaml), a Render Blueprint for the static website and Express API. The API needs a reachable MySQL database. One setup is to create a MySQL service in Railway, enable its public TCP connection, then deploy the Render Blueprint and provide the database's public host, port, username, password, and database name when prompted. Railway's MySQL service exposes connection settings in its Variables panel; public access uses a TCP proxy. See the [Railway MySQL guide](https://docs.railway.com/databases/mysql).
+
+1. Push this repository to GitHub.
+2. Create a Railway project and add a MySQL database. Use a SQL client to connect with the database's public connection details and run the schema file shown below.
+3. In Render, create a new Blueprint and select this GitHub repository. Render reads `render.yaml` to create the API and frontend services. Enter the Railway database credentials when Render requests the `DB_*` values; `TICKET_SECRET` is generated automatically, and the frontend is configured to use the API service URL.
+4. After both Render services deploy, copy the `eventpulse-web` public URL and share it. The API is available at the `eventpulse-api` public URL, with `/health` as its health check.
+5. Seed sample events in the deployed database. Configure `server/.env` locally with the Railway public MySQL connection details and run the seed command below; it connects to Railway and inserts demo events.
+
+```bash
+mysql -h YOUR_PUBLIC_DB_HOST -P YOUR_PUBLIC_DB_PORT -u YOUR_DB_USER -p YOUR_DB_NAME < server/src/db/schema.sql # Create the app tables in the hosted database; replace YOUR_* with Railway's public connection details.
+npm --prefix server run seed # Insert sample events using the database settings in server/.env.
+```
+
+Do not put database credentials or `TICKET_SECRET` in GitHub. The app uses demo-only identity headers and mock payments; use sample data only for a public demonstration.
 
 ## Using the application
 
@@ -141,7 +158,7 @@ Run these from the repository root unless stated otherwise. Each command is foll
 | `npm run build` | Build the frontend into `dist/` |
 | `npm run preview` | Preview the production frontend build |
 | `npm test` | Run the API test suite with Node's test runner |
-| `npm --prefix server run seed` | Insert demo events (see the current schema mismatch above) |
+| `npm --prefix server run seed` | Insert demo events into the database configured in `server/.env` |
 
 For example, these commands install dependencies and then start each part of the app:
 
@@ -154,7 +171,7 @@ npm run dev                  # Start the frontend in another terminal.
 
 ## Troubleshooting
 
-- **The event list is empty:** check that MySQL is running, the API is configured and reachable, and the database has published events. The seed command currently needs the schema/seed mismatch fixed first.
+- **The event list is empty:** check that MySQL is running, the API is configured and reachable, and the database has published events. Run the seed command after configuring `server/.env` if you want sample events.
 - **The browser reports a network error:** verify the API is listening on the URL in the project-root `.env` (or the default port 5000), then restart Vite after configuration changes.
 - **The API cannot connect to MySQL:** check `server/.env`, database permissions, and that `DB_NAME` matches the loaded schema.
 - **`EADDRINUSE` appears when starting the API:** another program is already using the configured port. Stop the old API process, or choose an unused `PORT` in `server/.env` and set the same API address in the project-root `.env` as `VITE_API_URL`.

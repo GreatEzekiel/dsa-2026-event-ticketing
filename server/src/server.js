@@ -500,4 +500,4 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = Number(process.env.PORT || 5000);
-app.listen(PORT, () => console.log(`API listening on http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`API listening on port ${PORT}`));
